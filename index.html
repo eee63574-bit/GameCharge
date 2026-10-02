@@ -1,0 +1,660 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>GameCharge</title>
+
+    <style>
+        * {
+            box-sizing: border-box;
+        }
+
+        body {
+            margin: 0;
+            font-family: Arial, sans-serif;
+            background: #0f172a;
+            color: white;
+        }
+
+        .container {
+            width: min(100% - 30px, 1000px);
+            margin: auto;
+        }
+
+        header {
+            padding: 30px 0;
+            text-align: center;
+        }
+
+        header h1 {
+            margin: 0 0 8px;
+        }
+
+        header p {
+            color: #cbd5e1;
+        }
+
+        .section {
+            padding: 10px 0 30px;
+        }
+
+        .grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+            gap: 16px;
+        }
+
+        .card {
+            background: #1e293b;
+            border: 1px solid #334155;
+            border-radius: 16px;
+            padding: 20px;
+            text-align: center;
+        }
+
+        .card h3 {
+            margin: 10px 0 15px;
+        }
+
+        button {
+            width: 100%;
+            border: 0;
+            border-radius: 10px;
+            padding: 13px;
+            cursor: pointer;
+            font-size: 16px;
+            font-weight: bold;
+            background: #22c55e;
+            color: white;
+        }
+
+        button:hover {
+            opacity: 0.9;
+        }
+
+        .back {
+            background: #475569;
+            margin-bottom: 15px;
+        }
+
+        .hidden {
+            display: none;
+        }
+
+        .modal {
+            position: fixed;
+            inset: 0;
+            background: rgba(0, 0, 0, 0.75);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 15px;
+            z-index: 10;
+        }
+
+        .modal.hidden {
+            display: none;
+        }
+
+        .modal-box {
+            width: min(100%, 450px);
+            background: #1e293b;
+            border-radius: 16px;
+            padding: 22px;
+        }
+
+        input {
+            width: 100%;
+            padding: 13px;
+            margin: 7px 0;
+            border-radius: 9px;
+            border: 1px solid #475569;
+            background: #0f172a;
+            color: white;
+            font-size: 16px;
+        }
+
+        .close {
+            background: #ef4444;
+            margin-top: 8px;
+        }
+
+        .message {
+            margin-top: 12px;
+            padding: 12px;
+            border-radius: 10px;
+            background: #0f172a;
+            line-height: 1.7;
+        }
+
+        .loading {
+            text-align: center;
+            color: #cbd5e1;
+        }
+    </style>
+</head>
+
+<body>
+
+<header>
+    <div class="container">
+        <h1>🎮 GameCharge</h1>
+        <p>شحن ألعابك بسهولة</p>
+    </div>
+</header>
+
+<main class="container">
+
+    <!-- الألعاب -->
+    <section id="gamesSection" class="section">
+
+        <h2>اختر اللعبة</h2>
+
+        <div class="grid">
+
+            <div class="card">
+                <h3>🎯 PUBG Mobile</h3>
+
+                <button onclick="showPackages('pubg')">
+                    عرض الباقات
+                </button>
+            </div>
+
+            <div class="card">
+                <h3>🔥 Free Fire</h3>
+
+                <button onclick="showPackages('freefire')">
+                    عرض الباقات
+                </button>
+            </div>
+
+            <div class="card">
+                <h3>🟦 Roblox</h3>
+
+                <button onclick="showPackages('roblox')">
+                    عرض الباقات
+                </button>
+            </div>
+
+        </div>
+
+    </section>
+
+
+    <!-- الباقات -->
+    <section id="packagesSection" class="section hidden">
+
+        <button
+            class="back"
+            onclick="backToGames()">
+            ← رجوع للألعاب
+        </button>
+
+        <h2 id="packagesTitle">
+            الباقات
+        </h2>
+
+        <div
+            id="packagesGrid"
+            class="grid">
+        </div>
+
+    </section>
+
+</main>
+
+
+<!-- نافذة الطلب -->
+<div
+    id="orderModal"
+    class="modal hidden">
+
+    <div class="modal-box">
+
+        <h2>
+            إتمام الطلب
+        </h2>
+
+        <p id="selectedPackage"></p>
+
+        <input
+            id="playerId"
+            type="text"
+            placeholder="Player ID">
+
+        <input
+            id="customerName"
+            type="text"
+            placeholder="اسمك">
+
+        <input
+            id="phone"
+            type="tel"
+            placeholder="رقم الهاتف">
+
+        <button onclick="submitOrder()">
+            تأكيد الطلب
+        </button>
+
+        <button
+            class="close"
+            onclick="closeModal()">
+            إلغاء
+        </button>
+
+        <div
+            id="orderMessage"
+            class="message hidden">
+        </div>
+
+    </div>
+
+</div>
+
+
+<script>
+
+let currentGame = "";
+
+let currentPackageId = "";
+
+let currentPackageName = "";
+
+let products = {};
+
+
+// تحميل الباقات من السيرفر
+async function loadProducts() {
+
+    try {
+
+        const response =
+            await fetch("/api/products");
+
+        const data =
+            await response.json();
+
+        if (!response.ok || !data.success) {
+
+            throw new Error(
+                data.message ||
+                "تعذر تحميل الباقات"
+            );
+        }
+
+        products =
+            data.products || {};
+
+    } catch (error) {
+
+        console.error(error);
+
+        alert(
+            "تعذر تحميل الباقات من السيرفر"
+        );
+    }
+}
+
+
+// عرض باقات اللعبة
+function showPackages(game) {
+
+    currentGame = game;
+
+    const gameNames = {
+
+        pubg:
+            "PUBG Mobile",
+
+        freefire:
+            "Free Fire",
+
+        roblox:
+            "Roblox"
+    };
+
+
+    document
+        .getElementById("gamesSection")
+        .classList
+        .add("hidden");
+
+
+    document
+        .getElementById("packagesSection")
+        .classList
+        .remove("hidden");
+
+
+    document
+        .getElementById("packagesTitle")
+        .textContent =
+        "باقات " +
+        (gameNames[game] || game);
+
+
+    const grid =
+        document.getElementById(
+            "packagesGrid"
+        );
+
+
+    grid.innerHTML = "";
+
+
+    const gameProducts =
+        products[game] || [];
+
+
+    if (!gameProducts.length) {
+
+        grid.innerHTML =
+            '<div class="loading">لا توجد باقات حاليًا</div>';
+
+        return;
+    }
+
+
+    gameProducts.forEach(product => {
+
+        const card =
+            document.createElement("div");
+
+
+        card.className =
+            "card";
+
+
+        card.innerHTML = `
+
+            <h3>
+                ${escapeHtml(product.name)}
+            </h3>
+
+            <button
+                onclick="openOrder(
+                    '${escapeJs(product.id)}',
+                    '${escapeJs(product.name)}'
+                )">
+
+                شراء
+
+            </button>
+
+        `;
+
+
+        grid.appendChild(card);
+
+    });
+
+}
+
+
+// الرجوع للألعاب
+function backToGames() {
+
+    document
+        .getElementById("packagesSection")
+        .classList
+        .add("hidden");
+
+
+    document
+        .getElementById("gamesSection")
+        .classList
+        .remove("hidden");
+}
+
+
+// فتح نموذج الطلب
+function openOrder(
+    packageId,
+    packageName
+) {
+
+    currentPackageId =
+        packageId;
+
+    currentPackageName =
+        packageName;
+
+
+    document
+        .getElementById(
+            "selectedPackage"
+        )
+        .textContent =
+        "الباقة المختارة: " +
+        packageName;
+
+
+    document
+        .getElementById(
+            "orderMessage"
+        )
+        .classList
+        .add("hidden");
+
+
+    document
+        .getElementById(
+            "orderModal"
+        )
+        .classList
+        .remove("hidden");
+}
+
+
+// إغلاق النموذج
+function closeModal() {
+
+    document
+        .getElementById(
+            "orderModal"
+        )
+        .classList
+        .add("hidden");
+}
+
+
+// إرسال الطلب للسيرفر
+async function submitOrder() {
+
+    const playerId =
+        document
+        .getElementById("playerId")
+        .value
+        .trim();
+
+
+    const customerName =
+        document
+        .getElementById("customerName")
+        .value
+        .trim();
+
+
+    const phone =
+        document
+        .getElementById("phone")
+        .value
+        .trim();
+
+
+    const message =
+        document
+        .getElementById(
+            "orderMessage"
+        );
+
+
+    if (
+        !playerId ||
+        !customerName ||
+        !phone
+    ) {
+
+        message.textContent =
+            "يرجى تعبئة جميع الحقول.";
+
+
+        message
+            .classList
+            .remove("hidden");
+
+
+        return;
+    }
+
+
+    message.textContent =
+        "جاري إنشاء الطلب...";
+
+
+    message
+        .classList
+        .remove("hidden");
+
+
+    try {
+
+        const response =
+            await fetch(
+                "/api/orders",
+                {
+
+                    method: "POST",
+
+                    headers: {
+                        "Content-Type":
+                            "application/json"
+                    },
+
+                    body:
+                        JSON.stringify({
+
+                            game:
+                                currentGame,
+
+                            packageId:
+                                currentPackageId,
+
+                            playerId:
+                                playerId,
+
+                            customerName:
+                                customerName,
+
+                            phone:
+                                phone
+                        })
+                }
+            );
+
+
+        const data =
+            await response.json();
+
+
+        if (
+            !response.ok ||
+            !data.success
+        ) {
+
+            throw new Error(
+                data.message ||
+                "تعذر إنشاء الطلب"
+            );
+        }
+
+
+        message.innerHTML =
+
+            "تم إنشاء الطلب بنجاح ✅<br>" +
+
+            "رقم الطلب: <strong>" +
+
+            escapeHtml(
+                data.order.orderNumber
+            ) +
+
+            "</strong><br>" +
+
+            "حالة الدفع: غير مدفوعة حاليًا";
+
+
+        document
+            .getElementById("playerId")
+            .value = "";
+
+
+        document
+            .getElementById("customerName")
+            .value = "";
+
+
+        document
+            .getElementById("phone")
+            .value = "";
+
+
+    } catch (error) {
+
+        console.error(error);
+
+        message.textContent =
+            error.message ||
+            "تعذر الاتصال بالسيرفر";
+    }
+
+}
+
+
+// حماية النصوص
+function escapeHtml(value) {
+
+    return String(value)
+
+        .replaceAll("&", "&amp;")
+
+        .replaceAll("<", "&lt;")
+
+        .replaceAll(">", "&gt;")
+
+        .replaceAll(
+            '"',
+            "&quot;"
+        )
+
+        .replaceAll(
+            "'",
+            "&#039;"
+        );
+}
+
+
+function escapeJs(value) {
+
+    return String(value)
+
+        .replaceAll(
+            "\\",
+            "\\\\"
+        )
+
+        .replaceAll(
+            "'",
+            "\\'"
+        );
+}
+
+
+// تشغيل تحميل الباقات
+loadProducts();
+
+</script>
+
+</body>
+          </html>
